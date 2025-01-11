@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register & Private Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f2f2f2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        #chatbox-container {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            height: 500px;
+            display: none; /* Initially hidden */
+        }
+
+        #category-tabs {
+            display: flex;
+            justify-content: space-around;
+            background-color: #4CAF50;
+            padding: 10px;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .tab-btn:hover {
+            text-decoration: underline;
+        }
+
+        #chatbox {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 10px;
+            padding-top: 20px;
+        }
+
+        #messages-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding-right: 10px;
+            padding-left: 10px;
+        }
+
+        #message-input {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        #user-message {
+            width: 80%;
+            padding: 8px;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* Scrollable messages */
+        #messages-container {
+            scroll-behavior: smooth;
+        }
+
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        #clear-chat {
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        /* Username input section */
+        #username-container {
+            padding: 10px;
+            background-color: #f2f2f2;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        #username-input {
+            padding: 8px;
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+
+        #username-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        #username-btn:hover {
+            background-color: #45a049;
+        }
+
+        /* Online Users list */
+        #online-users-container {
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .online-user {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            text-align: center;
+        }
+
+        .online-user:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Username Setup -->
+    <div id="username-container">
+        <input type="text" id="username-input" placeholder="Enter your username" />
+        <button id="username-btn">Set Username</button>
+    </div>
+
+    <!-- Online Users List -->
+    <div id="online-users-container" style="display:none;">
+        <h3>Available Online Users:</h3>
+        <div id="user-list"></div>
+    </div>
+
+    <!-- Chat Box (Initially Hidden) -->
+    <div id="chatbox-container">
+        <div id="category-tabs">
+            <button class="tab-btn"><a href="index.html">General</a></button>
+            <button class="tab-btn">Private</button>
+        </div>
+
+        <div id="messages-container"></div>
+
+        <!-- Message Input Area -->
+        <div id="message-input">
+            <input type="text" id="user-message" placeholder="Type your message..." />
+            <button id="send-message-btn">Send</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.ably.io/lib/ably.js"></script>
+    <script>
+        const ably = new Ably.Realtime({ key: 'A2d_-A.1BaGMw:stl13eplJUOlO1UI5slUxDy9S17jg6FaoM9CsWQJYUk' });
+        const chatChannel = ably.channels.get('private-chat-channel');
+        let username = '';
+
+        // Handle setting username
+        document.getElementById('username-btn').addEventListener('click', () => {
+            username = document.getElementById('username-input').value.trim();
+
+            if (username) {
+                document.getElementById('username-container').style.display = 'none';
+                document.getElementById('online-users-container').style.display = 'block';
+
+                // Inform Ably of the new user
+                chatChannel.presence.enter(username);
+            } else {
+                alert('Please enter a valid username!');
+            }
+        });
+
+        // Fetch online users
+        chatChannel.presence.subscribe('enter', (member) => {
+            displayOnlineUser(member);
+        });
+
+        // Display online users
+        function displayOnlineUser(member) {
+            const userList = document.getElementById('user-list');
+            const userDiv = document.createElement('div');
+            userDiv.className = 'online-user';
+            userDiv.textContent = member.clientId;
+            userDiv.addEventListener('click', () => {
+                startChat(member.clientId);
+            });
+            userList.appendChild(userDiv);
+        }
+
+        // Start chat with selected user
+        function startChat(selectedUser) {
+            document.getElementById('online-users-container').style.display = 'none';
+            document.getElementById('chatbox-container').style.display = 'block';
+            fetchMessages();
+        }
+
+        // Fetch all previous messages
+        async function fetchMessages() {
+            try {
+                const response = await fetch('/messages');
+                const messages = await response.json();
+                messages.forEach(displayMessage);
+            } catch (error) {
+                console.error('Error fetching messages:', error);
+            }
+        }
+
+        // Display message
+        function displayMessage({ username, message, timestamp }) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+
+            const time = new Date(timestamp).toLocaleTimeString();
+            messageElement.innerHTML = `
+                <div class="msg-bubble ${username === 'you' ? 'user-msg' : 'bot-msg'}">
+                    <strong>${username}</strong> <span>(${time})</span><br>
+                    ${message}
+                </div>
+            `;
+
+            document.getElementById('messages-container').appendChild(messageElement);
+            document.getElementById('messages-container').scrollTop = document.getElementById('messages-container').scrollHeight;
+        }
+
+        // Send message to the private channel
+        document.getElementById('send-message-btn').addEventListener('click', async () => {
+            const messageInput = document.getElementById('user-message');
+            const message = messageInput.value.trim();
+
+            if (!message) {
+                alert("Message cannot be empty.");
+                return;
+            }
+
+            displayMessage({ username: 'you', message, timestamp: new Date() });
+
+            // Publish message to the private channel
+            chatChannel.publish('new-message', {
+                username: 'you',
+                message,
+                timestamp: new Date(),
+            });
+
+            messageInput.value = '';
+        });
+
+        // Listen for new messages
+        chatChannel.subscribe('new-message', (message) => {
+            displayMessage(message.data);
+        });
+    </script>
+</body>
+
+</html>
