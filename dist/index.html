@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Chat</title>
+  <script src="https://cdn.jsdelivr.net/npm/ably@1.2.7/browser/ably.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
+  <style>
+    /* Your existing styles */
+    /* Add styles for username and time below */
+    .username-container {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 10px;
+      font-size: 14px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="card-container">
+    <div class="card-header">
+      <div class="img-avatar"></div>
+      <div class="text-chat">Chat</div>
+    </div>
+    <div class="card-body">
+      <div class="messages-container" id="messages-container"></div>
+      <div class="message-input">
+        <form id="chat-form">
+          <textarea id="message-input" placeholder="Type your message here"></textarea>
+          <button type="submit" class="button-send">Send</button>
+        </form>
+      </div>
+    </div>
+    <div class="username-container">
+      <input type="text" id="username-input" placeholder="Enter your username">
+      <span id="username-display"></span>
+    </div>
+  </div>
+
+  <script>
+    // Ably and Socket.IO Setup
+    const ably = new Ably.Realtime('A2d_-A.1BaGMw:stl13eplJUOlO1UI5slUxDy9S17jg6FaoM9CsWQJYUk');
+    const chatChannel = ably.channels.get('chat-channel');
+    const socket = io('https://your-socket-server.com'); // Replace with your server URL
+
+    // MongoDB Atlas Connection (done on the server side)
+    const usernameInput = document.getElementById('username-input');
+    const usernameDisplay = document.getElementById('username-display');
+    const messageInput = document.getElementById('message-input');
+    const chatForm = document.getElementById('chat-form');
+    const messagesContainer = document.getElementById('messages-container');
+    let username = '';
+
+    // Initialize the username
+    usernameInput.addEventListener('input', function () {
+      username = usernameInput.value.trim();
+      usernameDisplay.textContent = username;
+    });
+
+    // Send message on form submit
+    chatForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!username || !messageInput.value.trim()) return;
+
+      const message = {
+        username,
+        text: messageInput.value.trim(),
+        timestamp: new Date().toLocaleTimeString()
+      };
+
+      // Emit message to Ably
+      chatChannel.publish('new-message', message);
+
+      // Emit message to your server for MongoDB storage
+      socket.emit('store-message', message);
+      
+      // Clear message input
+      messageInput.value = '';
+    });
+
+    // Listen for new messages from Ably
+    chatChannel.subscribe('new-message', function (message) {
+      const messageElement = document.createElement('div');
+      const messageTime = message.data.timestamp;
+
+      messageElement.classList.add('message-box', message.data.username === username ? 'right' : 'left');
+      messageElement.innerHTML = `
+        <p><strong>${message.data.username}</strong>: ${message.data.text}</p>
+        <small>${messageTime}</small>
+      `;
+      messagesContainer.appendChild(messageElement);
+
+      // Scroll to the bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    });
+  </script>
+</body>
+</html>
